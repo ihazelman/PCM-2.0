@@ -172,8 +172,9 @@
   display: inline-block; padding: 2px 8px; border-radius: 4px;
   font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
 }
-.role-badge.admin { background: #ede9fe; color: #7c3aed; }
-.role-badge.user  { background: var(--bg); color: var(--text3); border: 1px solid var(--border2); }
+.role-badge.admin      { background: #ede9fe; color: #7c3aed; }
+.role-badge.supervisor { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.role-badge.user       { background: var(--bg); color: var(--text3); border: 1px solid var(--border2); }
 
 /* ── Empty state ────────────────────────────────────────────────────────── */
 .empty-state {
@@ -204,7 +205,8 @@
     </div>
   </div>
   <div class="header-right">
-    <span class="badge-admin" id="admin-badge" style="display:none">&#9679; Admin</span>
+    <span class="badge-admin" id="admin-badge"      style="display:none">&#9679; Admin</span>
+    <span class="badge-admin" id="supervisor-badge" style="display:none;background:linear-gradient(135deg,#1d4ed8,#3b82f6)">&#9679; Supervisor</span>
     <span class="header-badge" id="user-badge"></span>
     <button class="btn btn-ghost btn-header" id="btn-users" style="display:none;margin-right:6px;" onclick="openUsersModal()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -253,19 +255,19 @@
         </div>
         <div class="form-group full">
           <label class="form-label">Poço <span class="req">*</span></label>
-          <input class="form-input" id="ws-poco" placeholder="ex: 8-MRO-35DA-RJS">
+          <input class="form-input" id="ws-poco" placeholder="ex: 8-MRO-00-RJS">
         </div>
         <div class="form-group">
           <label class="form-label">Operação</label>
-          <input class="form-input" id="ws-op" placeholder="ex: ITH">
+          <input class="form-input" id="ws-op" placeholder="ex: ITH ou LWO">
         </div>
         <div class="form-group">
           <label class="form-label">TAG</label>
-          <input class="form-input" id="ws-tag" placeholder="ex: CCB-465">
+          <input class="form-input" id="ws-tag" placeholder="ex: CCB-xxx">
         </div>
         <div class="form-group full">
-          <label class="form-label">Supervisor / STO</label>
-          <input class="form-input" id="ws-sup" placeholder="ex: DOUGLAS DIAS / SAT2">
+          <label class="form-label">Supervisor</label>
+          <input class="form-input" id="ws-sup" placeholder="ex: DOUGLAS DIAS">
         </div>
       </div>
     </div>
@@ -392,8 +394,10 @@ _fbAuth.onAuthStateChanged(async user => {
     document.getElementById('user-name').textContent  = profile.name  || user.email;
     document.getElementById('user-badge').textContent = _currentUserEmail;
     if (isAdmin) {
-      document.getElementById('admin-badge').style.display = 'inline-flex';
-      document.getElementById('btn-users').style.display   = 'inline-flex';
+      document.getElementById('admin-badge').style.display      = 'inline-flex';
+      document.getElementById('btn-users').style.display        = 'inline-flex';
+    } else if (profile.role === 'supervisor') {
+      document.getElementById('supervisor-badge').style.display = 'inline-flex';
     }
     sessionStorage.setItem('pcm_session', JSON.stringify({ email: _currentUserEmail, name: profile.name, role: profile.role, uid: user.uid }));
   } catch(e) {
@@ -404,8 +408,10 @@ _fbAuth.onAuthStateChanged(async user => {
       document.getElementById('user-name').textContent  = cached.name  || cached.email;
       document.getElementById('user-badge').textContent = cached.email || '';
       if (isAdmin) {
-        document.getElementById('admin-badge').style.display = 'inline-flex';
-        document.getElementById('btn-users').style.display   = 'inline-flex';
+        document.getElementById('admin-badge').style.display      = 'inline-flex';
+        document.getElementById('btn-users').style.display        = 'inline-flex';
+      } else if (cached.role === 'supervisor') {
+        document.getElementById('supervisor-badge').style.display = 'inline-flex';
       }
     }
   }
@@ -673,21 +679,26 @@ async function renderUsersTable(){
   try {
     const snap = await _fbDB.collection('pcm_users').get();
     const users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    const roleLabel = { admin: 'Admin', supervisor: 'Supervisor', user: 'Usuário' };
     tbody.innerHTML = users.map(u => {
       const isSelf = u.uid === _currentUserUID;
-      const roleBadge = u.role === 'admin'
-        ? '<span class="role-badge admin">Admin</span>'
-        : '<span class="role-badge user">Usuário</span>';
-      const toggleLbl = u.role === 'admin' ? 'Tornar Usuário' : 'Tornar Admin';
+      const r = u.role || 'user';
+      const roleBadge = `<span class="role-badge ${r}">${roleLabel[r] || r}</span>`;
       const actions = isSelf
         ? '<span style="font-size:var(--fs-xs);color:var(--text3)">Você</span>'
-        : `<button class="btn-icon" style="font-size:11px;padding:4px 8px;" onclick="toggleUserRole('${u.uid}','${u.role}')">${toggleLbl}</button>
-           <button class="btn-icon del" style="font-size:11px;padding:4px 8px;" onclick="deleteUserProfile('${u.uid}','${esc(u.name)}','${esc(u.email)}')">Excluir</button>`;
+        : `<select onchange="setUserRole('${u.uid}',this.value)"
+             style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--bg);cursor:pointer;">
+             <option value="user"       ${r==='user'      ?'selected':''}>Usuário</option>
+             <option value="supervisor" ${r==='supervisor'?'selected':''}>Supervisor</option>
+             <option value="admin"      ${r==='admin'     ?'selected':''}>Admin</option>
+           </select>
+           <button class="btn-icon del" style="font-size:11px;padding:4px 8px;"
+             onclick="deleteUserProfile('${u.uid}','${esc(u.name)}','${esc(u.email)}')">Excluir</button>`;
       return `<tr>
         <td>${esc(u.name)}</td>
         <td style="font-family:var(--font-mono);font-size:var(--fs-xs)">${esc(u.email)}</td>
         <td>${roleBadge}</td>
-        <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">${actions}</td>
+        <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end;align-items:center">${actions}</td>
       </tr>`;
     }).join('');
   } catch(e) {
@@ -695,9 +706,8 @@ async function renderUsersTable(){
   }
 }
 
-async function toggleUserRole(uid, currentRole){
+async function setUserRole(uid, newRole){
   if (uid === _currentUserUID) return;
-  const newRole = currentRole === 'admin' ? 'user' : 'admin';
   try {
     await _fbDB.collection('pcm_users').doc(uid).update({ role: newRole });
     await renderUsersTable();

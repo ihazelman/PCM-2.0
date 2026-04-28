@@ -4198,12 +4198,12 @@ async function initApp(){
     ? {sonda:_wsObj.sonda||'', poco:_wsObj.poco||'', op:_wsObj.op||'', tag:_wsObj.tag||'', sup:_wsObj.sup||'', equipe:''}
     : {sonda:'NS-39',poco:'8-MRO-35DA-RJS',op:'ITH',tag:'CCB-465',sup:'DOUGLAS DIAS / SAT2',equipe:''};
 
-  items        = lsOrDefault(_wsKey('lismat_v2'),            JSON.parse(JSON.stringify(SEED)));
-  mangueiras   = lsOrDefault(_wsKey('lismat_v2_mangueiras'), JSON.parse(JSON.stringify(MANGUEIRAS_SEED)));
+  items        = lsOrDefault(_wsKey('lismat_v2'),            []);
+  mangueiras   = lsOrDefault(_wsKey('lismat_v2_mangueiras'), []);
   config       = lsOrDefault(_wsKey('lismat_v2_config'),     _cfgDefault);
-  contSubitems = lsOrDefault(_wsKey('lismat_v2_cont_sub'),   JSON.parse(JSON.stringify(CONT_SUB_SEED)));
+  contSubitems = lsOrDefault(_wsKey('lismat_v2_cont_sub'),   {});
   for(const k of Object.keys(GENERIC_CFG)){
-    genericData[k] = lsOrDefault(_wsKey(GENERIC_CFG[k].lsKey), JSON.parse(JSON.stringify(GENERIC_SEED[k]||[])));
+    genericData[k] = lsOrDefault(_wsKey(GENERIC_CFG[k].lsKey), []);
   }
   nextId = (items.length ? Math.max(...items.map(i=>i.id)) : 0) + 1;
 

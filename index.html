@@ -4199,12 +4199,12 @@ async function initApp(){
     ? {sonda:_wsObj.sonda||'', poco:_wsObj.poco||'', op:_wsObj.op||'', tag:_wsObj.tag||'', sup:_wsObj.sup||'', equipe:''}
     : {sonda:'NS-39',poco:'8-MRO-35DA-RJS',op:'ITH',tag:'CCB-465',sup:'DOUGLAS DIAS / SAT2',equipe:''};
 
-  items        = lsOrDefault(_wsKey('lismat_v2'),            []);
-  mangueiras   = lsOrDefault(_wsKey('lismat_v2_mangueiras'), []);
+  items        = lsOrDefault(_wsKey('lismat_v2'),            lsOrDefault('lismat_v2', SEED));
+  mangueiras   = lsOrDefault(_wsKey('lismat_v2_mangueiras'), lsOrDefault('lismat_v2_mangueiras', MANGUEIRAS_SEED));
   config       = lsOrDefault(_wsKey('lismat_v2_config'),     _cfgDefault);
-  contSubitems = lsOrDefault(_wsKey('lismat_v2_cont_sub'),   {});
+  contSubitems = lsOrDefault(_wsKey('lismat_v2_cont_sub'),   lsOrDefault('lismat_v2_cont_sub', CONT_SUB_SEED));
   for(const k of Object.keys(GENERIC_CFG)){
-    genericData[k] = lsOrDefault(_wsKey(GENERIC_CFG[k].lsKey), []);
+    genericData[k] = lsOrDefault(_wsKey(GENERIC_CFG[k].lsKey), lsOrDefault(GENERIC_CFG[k].lsKey, GENERIC_SEED[k] || []));
   }
   nextId = (items.length ? Math.max(...items.map(i=>i.id)) : 0) + 1;
 
@@ -4543,6 +4543,16 @@ function solicExportarExcel(){
 }
 
 document.getElementById('solicitarModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeSolicitarModal(); });
+
+// Inicializa Firebase antes de usar firebase.auth()
+if (!firebase.apps.length) firebase.initializeApp({
+  apiKey: "AIzaSyCU_2HPubm_C7o3QrsGLvLKsh2FaZZFOXo",
+  authDomain: "pcm-2-0.firebaseapp.com",
+  projectId: "pcm-2-0",
+  storageBucket: "pcm-2-0.firebasestorage.app",
+  messagingSenderId: "541983140468",
+  appId: "1:541983140468:web:8ff0c46c73ecb5e8823f21"
+});
 
 // Auth guard — resolve promise when authenticated, redirect otherwise
 let _authReadyResolve;

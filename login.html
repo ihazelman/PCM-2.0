@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="css/styles.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <title>PCM — Acesso</title>
 <style>
 body {
@@ -159,24 +162,21 @@ body {
 </div>
 
 <script>
-// ── Seed admin padrão ─────────────────────────────────────────────────────
-(function seedAdmin(){
-  try{
-    const users = JSON.parse(localStorage.getItem('pcm_users')||'[]');
-    if(!users.find(u => u.role === 'admin')){
-      users.unshift({
-        email: 'admin@slb.com',
-        name:  'Administrador',
-        pass:  btoa(unescape(encodeURIComponent('Admin@2025'))),
-        role:  'admin'
-      });
-      localStorage.setItem('pcm_users', JSON.stringify(users));
-    }
-  }catch(e){}
-})();
+// ── Firebase ──────────────────────────────────────────────────────────────
+const _CFG = {
+  apiKey: "AIzaSyCU_2HPubm_C7o3QrsGLvLKsh2FaZZFOXo",
+  authDomain: "pcm-2-0.firebaseapp.com",
+  projectId: "pcm-2-0",
+  storageBucket: "pcm-2-0.firebasestorage.app",
+  messagingSenderId: "541983140468",
+  appId: "1:541983140468:web:8ff0c46c73ecb5e8823f21"
+};
+if (!firebase.apps.length) firebase.initializeApp(_CFG);
+const _auth = firebase.auth();
+const _db   = firebase.firestore();
 
-// ── Redirect se já logado ─────────────────────────────────────────────────
-if(sessionStorage.getItem('pcm_session')) location.href = 'home.html';
+// Redirect se já logado
+_auth.onAuthStateChanged(user => { if (user) location.href = 'home.html'; });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
 function switchTab(tab){
@@ -207,24 +207,33 @@ function togglePass(id, btn){
   btn.textContent = el.type === 'password' ? '👁' : '🙈';
 }
 
-// ── Storage helpers ───────────────────────────────────────────────────────
-function getUsers(){ try{ return JSON.parse(localStorage.getItem('pcm_users')||'[]'); }catch(e){ return []; } }
-function saveUsers(u){ localStorage.setItem('pcm_users', JSON.stringify(u)); }
-function setSession(user){ sessionStorage.setItem('pcm_session', JSON.stringify(user)); }
-
 // ── Login ─────────────────────────────────────────────────────────────────
-function doLogin(){
+async function doLogin(){
   const email = document.getElementById('l-email').value.trim().toLowerCase();
   const pass  = document.getElementById('l-pass').value;
   if(!email || !pass){ showMsg('login-msg','Preencha todos os campos.','error'); return; }
-  const user = getUsers().find(u => u.email === email && u.pass === btoa(unescape(encodeURIComponent(pass))));
-  if(!user){ showMsg('login-msg','E-mail ou senha incorretos.','error'); return; }
-  setSession({ email: user.email, name: user.name, role: user.role || 'user' });
-  location.href = 'home.html';
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const cred = await _auth.signInWithEmailAndPassword(email, pass);
+    const snap = await _db.collection('pcm_users').doc(cred.user.uid).get();
+    const profile = snap.exists ? snap.data() : { name: email, role: 'user', email };
+    sessionStorage.setItem('pcm_session', JSON.stringify({
+      email: profile.email || email,
+      name:  profile.name  || email,
+      role:  profile.role  || 'user',
+      uid:   cred.user.uid
+    }));
+    location.href = 'home.html';
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Entrar';
+    const AUTH_ERRS = ['auth/user-not-found','auth/wrong-password','auth/invalid-credential','auth/invalid-email'];
+    showMsg('login-msg', AUTH_ERRS.includes(e.code) ? 'E-mail ou senha incorretos.' : 'Erro ao entrar. Tente novamente.', 'error');
+  }
 }
 
 // ── Register ──────────────────────────────────────────────────────────────
-function doRegister(){
+async function doRegister(){
   const name  = document.getElementById('r-name').value.trim();
   const email = document.getElementById('r-email').value.trim().toLowerCase();
   const pass  = document.getElementById('r-pass').value;
@@ -233,13 +242,24 @@ function doRegister(){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showMsg('register-msg','E-mail inválido.','error'); return; }
   if(pass.length < 6){ showMsg('register-msg','Senha deve ter pelo menos 6 caracteres.','error'); return; }
   if(pass !== pass2){ showMsg('register-msg','As senhas não coincidem.','error'); return; }
-  const users = getUsers();
-  if(users.find(u => u.email === email)){ showMsg('register-msg','E-mail já cadastrado.','error'); return; }
-  users.push({ email, name, pass: btoa(unescape(encodeURIComponent(pass))), role: 'user' });
-  saveUsers(users);
-  setSession({ email, name, role: 'user' });
-  showMsg('register-msg','Conta criada! Redirecionando...','success');
-  setTimeout(() => location.href = 'home.html', 900);
+  const btn = document.querySelector('#form-register .btn-login');
+  if(btn){ btn.disabled = true; btn.textContent = '...'; }
+  try {
+    // Primeiro usuário cadastrado vira admin automaticamente
+    const adminSnap = await _db.collection('pcm_users').where('role','==','admin').limit(1).get();
+    const role = adminSnap.empty ? 'admin' : 'user';
+    const cred = await _auth.createUserWithEmailAndPassword(email, pass);
+    await _db.collection('pcm_users').doc(cred.user.uid).set({ email, name, role });
+    sessionStorage.setItem('pcm_session', JSON.stringify({ email, name, role, uid: cred.user.uid }));
+    showMsg('register-msg','Conta criada! Redirecionando...','success');
+    setTimeout(() => location.href = 'home.html', 900);
+  } catch(e) {
+    if(btn){ btn.disabled = false; btn.textContent = 'Criar conta'; }
+    const msg = e.code === 'auth/email-already-in-use' ? 'E-mail já cadastrado.'
+              : e.code === 'auth/weak-password'         ? 'Senha muito fraca (mínimo 6 caracteres).'
+              : 'Erro ao criar conta. Tente novamente.';
+    showMsg('register-msg', msg, 'error');
+  }
 }
 
 // ── Enter key ─────────────────────────────────────────────────────────────

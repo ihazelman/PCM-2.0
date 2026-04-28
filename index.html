@@ -7,7 +7,28 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<title></title></head>
+<title></title>
+<style>
+/* ── Controle de acesso por perfil ───────────────────────────────────────── */
+body.role-user .btn-edit,
+body.role-user .btn-del,
+body.role-user .btn-des,
+body.role-user .btn-transb,
+body.role-user .btn-manage-items { display: none !important; }
+
+body.role-user .cfg-input { pointer-events: none; opacity: .55; background: var(--bg); cursor: default; }
+body.role-user .sidebar-action-btn:not(.sidebar-action-excel) { display: none; }
+
+.role-pill {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-ui); font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 9px; border-radius: 20px; margin-left: 6px; vertical-align: middle;
+}
+.role-pill-admin      { background: #ede9fe; color: #7c3aed; }
+.role-pill-supervisor { background: #dbeafe; color: #1d4ed8; }
+.role-pill-user       { background: var(--bg); color: var(--text3); border: 1px solid var(--border2); }
+</style></head>
 <body class="app-layout">
 
 <div class="toast" id="toast"></div>
@@ -2595,7 +2616,7 @@ function renderSubitemsBlock(contId, colspan){
       <div class="cont-subitens-wrap">
         <div class="cont-subitens-header">
           <span>📦 Itens dentro do Contentor <span style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--navy);color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px;">${subs.length}</span></span>
-          <button class="btn btn-primary" style="font-size:11px;padding:5px 12px;" onclick="openSubitemModal(${contId})">＋ Gerenciar Itens</button>
+          <button class="btn btn-primary btn-manage-items" style="font-size:11px;padding:5px 12px;" onclick="openSubitemModal(${contId})">＋ Gerenciar Itens</button>
         </div>
         <table class="cont-subitens-table">
           <thead><tr>
@@ -4240,9 +4261,13 @@ async function initApp(){
     if(badge) badge.textContent = 'Hoje: ' + new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
     const _sess = JSON.parse(sessionStorage.getItem('pcm_session') || 'null');
     const _userEl = document.getElementById('header-user');
+    const _userRole = _sess?.role || 'user';
+    document.body.classList.add(`role-${_userRole}`);
     if(_userEl && _sess){
       const _parts = (_sess.name || _sess.email || '').trim().split(/\s+/);
-      _userEl.textContent = _parts.length > 1 ? `${_parts[0]} ${_parts[_parts.length - 1]}` : _parts[0];
+      const _nome = _parts.length > 1 ? `${_parts[0]} ${_parts[_parts.length - 1]}` : _parts[0];
+      const _roleLabels = { admin: 'Admin', supervisor: 'Supervisor', user: 'Usuário' };
+      _userEl.innerHTML = `${_nome}<span class="role-pill role-pill-${_userRole}">${_roleLabels[_userRole] || _userRole}</span>`;
     }
     loadConfig(); updateKPIs(); applyFilters(); renderMangueiras();
     Object.keys(GENERIC_CFG).forEach(k => renderGenericTab(k));

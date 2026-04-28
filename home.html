@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="css/styles.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <title>PCM — Home</title>
 <style>
 /* ── Welcome bar ────────────────────────────────────────────────────────── */
@@ -330,6 +332,45 @@
 </div>
 
 <script>
+// ── Firebase Firestore ────────────────────────────────────────────────────
+const FSDB = (() => {
+  let db = null;
+  const COL = 'pcm_data';
+  const CFG = {
+    apiKey: "AIzaSyCU_2HPubm_C7o3QrsGLvLKsh2FaZZFOXo",
+    authDomain: "pcm-2-0.firebaseapp.com",
+    projectId: "pcm-2-0",
+    storageBucket: "pcm-2-0.firebasestorage.app",
+    messagingSenderId: "541983140468",
+    appId: "1:541983140468:web:8ff0c46c73ecb5e8823f21"
+  };
+  function init() {
+    try {
+      if (typeof firebase === 'undefined') return;
+      if (!firebase.apps.length) firebase.initializeApp(CFG);
+      db = firebase.firestore();
+    } catch(e) { console.warn('Firebase init:', e); }
+  }
+  async function set(key, val) {
+    if (!db) return;
+    try {
+      const clean = JSON.parse(JSON.stringify(val));
+      const doc = Array.isArray(clean) ? { _arr: clean } : { ...clean };
+      await db.collection(COL).doc(key).set(doc);
+    } catch(e) { console.warn('FSDB.set:', key, e); }
+  }
+  async function get(key) {
+    if (!db) return null;
+    try {
+      const snap = await db.collection(COL).doc(key).get();
+      if (!snap.exists) return null;
+      const d = snap.data();
+      return '_arr' in d ? d._arr : d;
+    } catch(e) { console.warn('FSDB.get:', key, e); return null; }
+  }
+  return { init, set, get };
+})();
+
 // ── Auth guard ────────────────────────────────────────────────────────────
 const session = JSON.parse(sessionStorage.getItem('pcm_session') || 'null');
 if(!session) location.href = 'login.html';
@@ -351,7 +392,10 @@ function doLogout(){
 
 // ── Workspace storage ─────────────────────────────────────────────────────
 function getWorkspaces(){ try{ return JSON.parse(localStorage.getItem('pcm_workspaces')||'[]'); }catch(e){ return []; } }
-function saveWorkspaces(list){ localStorage.setItem('pcm_workspaces', JSON.stringify(list)); }
+function saveWorkspaces(list){
+  localStorage.setItem('pcm_workspaces', JSON.stringify(list));
+  FSDB.set('pcm_workspaces', list);
+}
 
 // ── KPI calc (lê items do workspace) ─────────────────────────────────────
 function calcKPIs(wsId){
@@ -476,6 +520,7 @@ function render(){
 // ── Navegação ─────────────────────────────────────────────────────────────
 function openWorkspace(id){
   sessionStorage.setItem('pcm_active_ws', id);
+  localStorage.setItem('pcm_active_ws', id);
   location.href = 'index.html';
 }
 
@@ -621,7 +666,21 @@ document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){ closeWsModal(); closeDelModal(); closeUsersModal(); }
 });
 
-render();
+render(); // Renderiza imediatamente com dados locais
+
+FSDB.init();
+(async () => {
+  try {
+    const fsWs = await FSDB.get('pcm_workspaces');
+    if (Array.isArray(fsWs) && fsWs.length > 0) {
+      localStorage.setItem('pcm_workspaces', JSON.stringify(fsWs));
+      render();
+    } else {
+      const local = getWorkspaces();
+      if (local.length > 0) FSDB.set('pcm_workspaces', local);
+    }
+  } catch(e) { console.warn('Firestore workspaces sync:', e); }
+})();
 </script>
 </body>
 </html>

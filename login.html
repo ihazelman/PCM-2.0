@@ -175,8 +175,9 @@ if (!firebase.apps.length) firebase.initializeApp(_CFG);
 const _auth = firebase.auth();
 const _db   = firebase.firestore();
 
-// Redirect se já logado
-_auth.onAuthStateChanged(user => { if (user) location.href = 'home.html'; });
+// Redirect se já logado (flag evita redirect durante o cadastro)
+let _registering = false;
+_auth.onAuthStateChanged(user => { if (user && !_registering) location.href = 'home.html'; });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
 function switchTab(tab){
@@ -244,6 +245,7 @@ async function doRegister(){
   if(pass !== pass2){ showMsg('register-msg','As senhas não coincidem.','error'); return; }
   const btn = document.querySelector('#form-register .btn-login');
   if(btn){ btn.disabled = true; btn.textContent = '...'; }
+  _registering = true;
   try {
     // Primeiro usuário cadastrado vira admin automaticamente
     const adminSnap = await _db.collection('pcm_users').where('role','==','admin').limit(1).get();
@@ -254,6 +256,7 @@ async function doRegister(){
     showMsg('register-msg','Conta criada! Redirecionando...','success');
     setTimeout(() => location.href = 'home.html', 900);
   } catch(e) {
+    _registering = false;
     if(btn){ btn.disabled = false; btn.textContent = 'Criar conta'; }
     const msg = e.code === 'auth/email-already-in-use' ? 'E-mail já cadastrado.'
               : e.code === 'auth/weak-password'         ? 'Senha muito fraca (mínimo 6 caracteres).'

@@ -247,10 +247,10 @@ async function doRegister(){
   if(btn){ btn.disabled = true; btn.textContent = '...'; }
   _registering = true;
   try {
-    // Primeiro usuário cadastrado vira admin automaticamente
+    // Cria conta primeiro (autentica o usuário) e depois consulta o Firestore
+    const cred = await _auth.createUserWithEmailAndPassword(email, pass);
     const adminSnap = await _db.collection('pcm_users').where('role','==','admin').limit(1).get();
     const role = adminSnap.empty ? 'admin' : 'user';
-    const cred = await _auth.createUserWithEmailAndPassword(email, pass);
     await _db.collection('pcm_users').doc(cred.user.uid).set({ email, name, role });
     sessionStorage.setItem('pcm_session', JSON.stringify({ email, name, role, uid: cred.user.uid }));
     showMsg('register-msg','Conta criada! Redirecionando...','success');
@@ -258,9 +258,10 @@ async function doRegister(){
   } catch(e) {
     _registering = false;
     if(btn){ btn.disabled = false; btn.textContent = 'Criar conta'; }
+    console.error('Erro no cadastro — code:', e.code, '| message:', e.message, '| full:', e);
     const msg = e.code === 'auth/email-already-in-use' ? 'E-mail já cadastrado.'
               : e.code === 'auth/weak-password'         ? 'Senha muito fraca (mínimo 6 caracteres).'
-              : 'Erro ao criar conta. Tente novamente.';
+              : `Erro ao criar conta: ${e.code || e.message}`;
     showMsg('register-msg', msg, 'error');
   }
 }

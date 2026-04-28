@@ -4243,8 +4243,9 @@ async function initApp(){
     if(th) th.classList.add('sort-asc');
   }catch(e){ console.error('Render local error:', e); }
 
-  // ── FASE 2: Sincronizar com Firestore em background ───────────────────────
+  // ── FASE 2: Sincronizar com Firestore em background (aguarda auth) ────────
   (async () => {
+    await _authReadyPromise;
     try {
       const [fsItems, fsMang, fsCfg, fsContSub] = await Promise.all([
         FSDB.get(_wsKey('lismat_v2')),
@@ -4543,11 +4544,13 @@ function solicExportarExcel(){
 
 document.getElementById('solicitarModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeSolicitarModal(); });
 
-// Auth guard — redirect to login if not authenticated
-(function(){
-  const _a = firebase.auth();
-  _a.onAuthStateChanged(user => { if (!user) location.href = 'login.html'; });
-})();
+// Auth guard — resolve promise when authenticated, redirect otherwise
+let _authReadyResolve;
+const _authReadyPromise = new Promise(r => { _authReadyResolve = r; });
+firebase.auth().onAuthStateChanged(user => {
+  if (!user) { location.href = 'login.html'; return; }
+  _authReadyResolve(user);
+});
 
 initApp();
 </script>

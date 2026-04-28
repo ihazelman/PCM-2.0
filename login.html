@@ -247,11 +247,14 @@ async function doRegister(){
   if(btn){ btn.disabled = true; btn.textContent = '...'; }
   _registering = true;
   try {
-    // Cria conta primeiro (autentica o usuário) e depois consulta o Firestore
+    console.log('[1] Iniciando cadastro para:', email);
     const cred = await _auth.createUserWithEmailAndPassword(email, pass);
+    console.log('[2] Conta criada no Auth. UID:', cred.user.uid);
     const adminSnap = await _db.collection('pcm_users').where('role','==','admin').limit(1).get();
+    console.log('[3] Admin query OK. empty:', adminSnap.empty);
     const role = adminSnap.empty ? 'admin' : 'user';
     await _db.collection('pcm_users').doc(cred.user.uid).set({ email, name, role });
+    console.log('[4] Perfil salvo no Firestore. role:', role);
     sessionStorage.setItem('pcm_session', JSON.stringify({ email, name, role, uid: cred.user.uid }));
     showMsg('register-msg','Conta criada! Redirecionando...','success');
     setTimeout(() => location.href = 'home.html', 900);

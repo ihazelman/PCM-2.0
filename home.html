@@ -419,6 +419,15 @@ _fbAuth.onAuthStateChanged(async user => {
     if (Array.isArray(fsWs) && fsWs.length > 0) {
       localStorage.setItem('pcm_workspaces', JSON.stringify(fsWs));
       render();
+      // Carrega dados de item de cada workspace para calcular KPIs
+      await Promise.all(fsWs.map(ws =>
+        FSDB.get('lismat_v2_' + ws.id).then(fsItems => {
+          if(Array.isArray(fsItems)){
+            try{ localStorage.setItem('lismat_v2_' + ws.id, JSON.stringify(fsItems)); }catch(e){}
+          }
+        }).catch(() => {})
+      ));
+      render(); // Re-renderiza com KPIs atualizados
     } else {
       const local = getWorkspaces();
       if (local.length > 0) FSDB.set('pcm_workspaces', local);

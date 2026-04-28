@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="css/styles.css">
+<title>PCM — Home</title>
+<style>
+/* ── Welcome bar ────────────────────────────────────────────────────────── */
+.welcome-bar {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  padding: 13px 28px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.welcome-text { font-family: var(--font-ui); font-size: var(--fs-md); color: var(--text2); }
+.welcome-text b { color: var(--navy); font-weight: 700; }
+.ws-count {
+  font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 600;
+  background: var(--navy3); color: var(--navy);
+  border: 1px solid var(--border2); border-radius: 20px; padding: 3px 12px;
+}
+
+/* ── Grid ───────────────────────────────────────────────────────────────── */
+.ws-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+  padding: 24px 28px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ── Workspace card ─────────────────────────────────────────────────────── */
+.ws-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column;
+  cursor: pointer; transition: all .15s; overflow: hidden; position: relative;
+}
+.ws-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+
+.ws-card-stripe {
+  height: 4px;
+  background: linear-gradient(90deg, var(--navy) 0%, #004aad 100%);
+}
+
+.ws-card-body { padding: 16px 18px 14px; flex: 1; }
+
+.ws-sonda {
+  font-family: var(--font-ui); font-size: 17px; font-weight: 800;
+  color: var(--navy); letter-spacing: -.01em;
+  display: flex; align-items: center; gap: 8px;
+}
+.ws-sonda svg { opacity: .4; flex-shrink: 0; }
+
+.ws-poco {
+  font-family: var(--font-mono); font-size: var(--fs-sm);
+  color: var(--text3); margin-top: 3px; margin-left: 24px;
+}
+
+.ws-chips {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px;
+}
+.ws-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg); border: 1px solid var(--border2);
+  border-radius: 5px; padding: 3px 8px;
+  font-family: var(--font-ui); font-size: var(--fs-xs); color: var(--text2);
+}
+.ws-chip b { color: var(--navy); font-weight: 700; }
+
+/* KPI strip */
+.ws-kpis {
+  display: flex; border-top: 1px solid var(--border2); margin-top: 14px;
+}
+.ws-kpi {
+  flex: 1; padding: 9px 6px; text-align: center;
+  border-right: 1px solid var(--border2);
+}
+.ws-kpi:last-child { border-right: none; }
+.ws-kpi-val {
+  font-family: var(--font-mono); font-size: 17px; font-weight: 700; display: block;
+}
+.ws-kpi-lbl {
+  font-family: var(--font-ui); font-size: 9px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--text3);
+  display: block; margin-top: 2px;
+}
+.kpi-total .ws-kpi-val { color: var(--navy);   }
+.kpi-exp   .ws-kpi-val { color: var(--danger);  }
+.kpi-warn  .ws-kpi-val { color: var(--amber);   }
+.kpi-ok    .ws-kpi-val { color: var(--green);   }
+
+/* Card footer */
+.ws-card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; border-top: 1px solid var(--border2);
+  background: var(--bg);
+}
+.ws-date { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text3); }
+.ws-actions { display: flex; gap: 5px; }
+
+.btn-open {
+  background: linear-gradient(135deg, var(--navy), var(--navy2));
+  color: #fff; border: none; border-radius: 6px;
+  padding: 5px 13px; font-family: var(--font-ui);
+  font-size: var(--fs-sm); font-weight: 700;
+  cursor: pointer; transition: opacity .15s;
+}
+.btn-open:hover { opacity: .85; }
+
+.btn-icon {
+  background: var(--white); border: 1px solid var(--border);
+  color: var(--text3); border-radius: 6px;
+  padding: 5px 9px; cursor: pointer;
+  font-size: 13px; line-height: 1; transition: all .15s;
+}
+.btn-icon:hover         { border-color: var(--navy);   color: var(--navy); }
+.btn-icon.del:hover     { border-color: var(--danger);  color: var(--danger); }
+
+/* ── Add card ───────────────────────────────────────────────────────────── */
+.ws-add-card {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  background: transparent; box-shadow: none;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; padding: 40px 20px; min-height: 220px;
+  cursor: pointer; transition: all .15s;
+}
+.ws-add-card:hover { border-color: var(--navy); background: var(--navy3); transform: translateY(-2px); }
+
+.ws-add-icon {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--navy3); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: var(--navy); transition: all .15s;
+}
+.ws-add-card:hover .ws-add-icon { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+.ws-add-label {
+  font-family: var(--font-ui); font-size: var(--fs-md);
+  font-weight: 600; color: var(--text3);
+}
+.ws-add-card:hover .ws-add-label { color: var(--navy); }
+
+/* ── Admin badge ────────────────────────────────────────────────────────── */
+.badge-admin {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff; font-family: var(--font-ui); font-size: 10px;
+  font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 20px; margin-right: 6px;
+}
+
+/* ── User management modal ──────────────────────────────────────────────── */
+.users-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.users-table th {
+  font-family: var(--font-ui); font-size: var(--fs-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--text3);
+  padding: 6px 10px; border-bottom: 2px solid var(--border); text-align: left;
+}
+.users-table td {
+  padding: 9px 10px; border-bottom: 1px solid var(--border2);
+  font-family: var(--font-ui); font-size: var(--fs-sm); color: var(--text2);
+  vertical-align: middle;
+}
+.users-table tr:last-child td { border-bottom: none; }
+.role-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+}
+.role-badge.admin { background: #ede9fe; color: #7c3aed; }
+.role-badge.user  { background: var(--bg); color: var(--text3); border: 1px solid var(--border2); }
+
+/* ── Empty state ────────────────────────────────────────────────────────── */
+.empty-state {
+  grid-column: 1 / -1; text-align: center;
+  padding: 50px 20px; color: var(--text3);
+}
+.empty-state svg { opacity: .25; display: block; margin: 0 auto 16px; }
+.empty-state h3 { font-family: var(--font-ui); font-size: 15px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+.empty-state p  { font-family: var(--font-ui); font-size: var(--fs-md); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo-wrap">
+      <img src="https://www.onesubsea.slb.com/-/media/onesubseajv/images/logos/jv_mainlogo.svg"
+           alt="SLB OneSubsea"
+           onerror="this.onerror=null;this.style.display='none';document.getElementById('logo-fb').style.display='block'">
+      <span id="logo-fb" style="display:none;font-size:18px;font-weight:800;color:#fff;letter-spacing:-.02em;">
+        SLB <span style="color:#FF6B00">OneSubsea</span>
+      </span>
+    </div>
+    <div class="header-divider"></div>
+    <div class="header-text">
+      <h1>PLANEJAMENTO E CONTROLE DE MATERIAIS OFFSHORE</h1>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="badge-admin" id="admin-badge" style="display:none">&#9679; Admin</span>
+    <span class="header-badge" id="user-badge"></span>
+    <button class="btn btn-ghost btn-header" id="btn-users" style="display:none;margin-right:6px;" onclick="openUsersModal()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      Usuários
+    </button>
+    <button class="btn btn-header" onclick="doLogout()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      Sair
+    </button>
+  </div>
+</header>
+
+<!-- WELCOME BAR -->
+<div class="welcome-bar">
+  <span class="welcome-text">Olá, <b id="user-name">—</b>! Selecione um workspace para continuar.</span>
+  <span class="ws-count" id="ws-count">0 workspaces</span>
+</div>
+
+<!-- GRID -->
+<div class="ws-grid" id="ws-grid"></div>
+
+<!-- MODAL: Novo / Editar Workspace -->
+<div class="modal-overlay" id="wsModal">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span class="modal-tag" id="ws-modal-tag">NOVO</span>
+        <span id="ws-modal-title-text">Novo Workspace</span>
+      </div>
+      <button class="modal-close" onclick="closeWsModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label class="form-label">Sonda / Barco <span class="req">*</span></label>
+          <input class="form-input" id="ws-sonda" placeholder="ex: NS-39">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Poço <span class="req">*</span></label>
+          <input class="form-input" id="ws-poco" placeholder="ex: 8-MRO-35DA-RJS">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Operação</label>
+          <input class="form-input" id="ws-op" placeholder="ex: ITH">
+        </div>
+        <div class="form-group">
+          <label class="form-label">TAG</label>
+          <input class="form-input" id="ws-tag" placeholder="ex: CCB-465">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Supervisor / STO</label>
+          <input class="form-input" id="ws-sup" placeholder="ex: DOUGLAS DIAS / SAT2">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeWsModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveWorkspace()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 3.5L6 11 2.5 7.5 1 9l5 5 9-9z"/></svg>
+        Salvar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Confirmar exclusão -->
+<div class="modal-overlay" id="delModal">
+  <div class="modal confirm-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span class="modal-tag" style="background:var(--danger);color:#fff;">EXCLUIR</span>
+        Confirmar Exclusão
+      </div>
+      <button class="modal-close" onclick="closeDelModal()">&times;</button>
+    </div>
+    <div class="confirm-body">
+      Excluir o workspace:<br>
+      <strong id="del-ws-name"></strong>
+      <div class="confirm-warn">⚠ Todos os dados deste workspace serão removidos permanentemente.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDelModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDeleteWs()">✕ &nbsp;Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- MODAL: Gerenciar Usuários (admin only) -->
+<div class="modal-overlay" id="usersModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span class="modal-tag" style="background:#7c3aed;color:#fff;">ADMIN</span>
+        Gerenciar Usuários
+      </div>
+      <button class="modal-close" onclick="closeUsersModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:0 0 4px;">
+      <table class="users-table" id="users-table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Perfil</th>
+            <th style="text-align:right">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeUsersModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Auth guard ────────────────────────────────────────────────────────────
+const session = JSON.parse(sessionStorage.getItem('pcm_session') || 'null');
+if(!session) location.href = 'login.html';
+
+const isAdmin = session?.role === 'admin';
+
+document.getElementById('user-name').textContent  = session?.name  || session?.email || '—';
+document.getElementById('user-badge').textContent = session?.email || '';
+if(isAdmin){
+  document.getElementById('admin-badge').style.display = 'inline-flex';
+  document.getElementById('btn-users').style.display   = 'inline-flex';
+}
+
+function doLogout(){
+  sessionStorage.removeItem('pcm_session');
+  sessionStorage.removeItem('pcm_active_ws');
+  location.href = 'login.html';
+}
+
+// ── Workspace storage ─────────────────────────────────────────────────────
+function getWorkspaces(){ try{ return JSON.parse(localStorage.getItem('pcm_workspaces')||'[]'); }catch(e){ return []; } }
+function saveWorkspaces(list){ localStorage.setItem('pcm_workspaces', JSON.stringify(list)); }
+
+// ── KPI calc (lê items do workspace) ─────────────────────────────────────
+function calcKPIs(wsId){
+  try{
+    const k1 = 'lismat_v2_' + wsId;
+    const k2 = 'lismat_v2';
+    const raw = localStorage.getItem(k1) || localStorage.getItem(k2) || null;
+    console.log('[calcKPIs]', wsId, '→ key1:', !!localStorage.getItem(k1), '| key2:', !!localStorage.getItem(k2), '| raw:', !!raw);
+    const items = raw ? JSON.parse(raw) : [];
+    if(!Array.isArray(items)) return { total:0, exp:0, warn:0, ok:0 };
+    const today = new Date(); today.setHours(0,0,0,0);
+    let exp=0, warn=0, ok=0;
+    items.forEach(it => {
+      if(it.semValidade || !it.validadeEND) return;
+      const d    = new Date(it.validadeEND + 'T00:00:00');
+      const dias = Math.round((d - today) / 86400000);
+      if(dias < 0)        exp++;
+      else if(dias <= 60) warn++;
+      else                ok++;
+    });
+    return { total: items.length, exp, warn, ok };
+  }catch(e){ return { total:0, exp:0, warn:0, ok:0 }; }
+}
+
+function fmtDate(ts){
+  return new Date(ts).toLocaleDateString('pt-BR',{ day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render(){
+  const list  = getWorkspaces();
+  const grid  = document.getElementById('ws-grid');
+  const badge = document.getElementById('ws-count');
+  badge.textContent = list.length + ' workspace' + (list.length !== 1 ? 's' : '');
+
+  let html = '';
+
+  if(list.length === 0){
+    html += `
+      <div class="empty-state">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <path d="M8 21h8M12 17v4"/>
+        </svg>
+        <h3>Nenhum workspace criado ainda</h3>
+        <p>Crie o primeiro workspace para começar a gerenciar os materiais da operação.</p>
+      </div>`;
+  }
+
+  list.forEach(ws => {
+    const kpi = calcKPIs(ws.id);
+    html += `
+    <div class="ws-card" onclick="openWorkspace('${ws.id}')">
+      <div class="ws-card-stripe"></div>
+      <div class="ws-card-body">
+        <div class="ws-sonda">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+          </svg>
+          ${esc(ws.sonda)}
+        </div>
+        <div class="ws-poco">${esc(ws.poco)}</div>
+        <div class="ws-chips">
+          ${ws.op  ? `<span class="ws-chip"><b>OP</b> ${esc(ws.op)}</span>`   : ''}
+          ${ws.tag ? `<span class="ws-chip"><b>TAG</b> ${esc(ws.tag)}</span>` : ''}
+          ${ws.sup ? `<span class="ws-chip"><b>SUP</b> ${esc(ws.sup)}</span>` : ''}
+        </div>
+        <div class="ws-kpis">
+          <div class="ws-kpi kpi-total">
+            <span class="ws-kpi-val">${kpi.total}</span>
+            <span class="ws-kpi-lbl">Total</span>
+          </div>
+          <div class="ws-kpi kpi-exp">
+            <span class="ws-kpi-val">${kpi.exp}</span>
+            <span class="ws-kpi-lbl">Vencidos</span>
+          </div>
+          <div class="ws-kpi kpi-warn">
+            <span class="ws-kpi-val">${kpi.warn}</span>
+            <span class="ws-kpi-lbl">Alerta</span>
+          </div>
+          <div class="ws-kpi kpi-ok">
+            <span class="ws-kpi-val">${kpi.ok}</span>
+            <span class="ws-kpi-lbl">OK</span>
+          </div>
+        </div>
+      </div>
+      <div class="ws-card-footer">
+        <span class="ws-date">Criado ${fmtDate(ws.criadoEm)}</span>
+        <div class="ws-actions" onclick="event.stopPropagation()">
+          ${isAdmin ? `
+          <button class="btn-icon" title="Editar" onclick="editWorkspace('${ws.id}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <button class="btn-icon del" title="Excluir" onclick="askDelete('${ws.id}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>` : ''}
+          <button class="btn-open" onclick="openWorkspace('${ws.id}')">Abrir →</button>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  if(isAdmin){
+    html += `
+    <div class="ws-add-card" onclick="openWsModal()">
+      <div class="ws-add-icon">+</div>
+      <span class="ws-add-label">Novo Workspace</span>
+    </div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+// ── Navegação ─────────────────────────────────────────────────────────────
+function openWorkspace(id){
+  sessionStorage.setItem('pcm_active_ws', id);
+  location.href = 'index.html';
+}
+
+// ── Modal Workspace ───────────────────────────────────────────────────────
+let editingWsId = null;
+
+function openWsModal(ws){
+  editingWsId = ws ? ws.id : null;
+  document.getElementById('ws-modal-tag').textContent        = ws ? 'EDITAR' : 'NOVO';
+  document.getElementById('ws-modal-title-text').textContent = ws ? 'Editar Workspace' : 'Novo Workspace';
+  document.getElementById('ws-sonda').value = ws?.sonda || '';
+  document.getElementById('ws-poco').value  = ws?.poco  || '';
+  document.getElementById('ws-op').value    = ws?.op    || '';
+  document.getElementById('ws-tag').value   = ws?.tag   || '';
+  document.getElementById('ws-sup').value   = ws?.sup   || '';
+  document.getElementById('wsModal').classList.add('open');
+  setTimeout(() => document.getElementById('ws-sonda').focus(), 80);
+}
+
+function closeWsModal(){ document.getElementById('wsModal').classList.remove('open'); }
+
+function editWorkspace(id){
+  const ws = getWorkspaces().find(w => w.id === id);
+  if(ws) openWsModal(ws);
+}
+
+function saveWorkspace(){
+  const sonda = document.getElementById('ws-sonda').value.trim();
+  const poco  = document.getElementById('ws-poco').value.trim();
+  if(!sonda || !poco){ showToast('Sonda e Poço são obrigatórios.','warn'); return; }
+
+  const list = getWorkspaces();
+  if(editingWsId){
+    const idx = list.findIndex(w => w.id === editingWsId);
+    if(idx >= 0) list[idx] = { ...list[idx], sonda, poco,
+      op:  document.getElementById('ws-op').value.trim(),
+      tag: document.getElementById('ws-tag').value.trim(),
+      sup: document.getElementById('ws-sup').value.trim(),
+    };
+  } else {
+    list.push({
+      id: 'ws_' + Date.now(),
+      sonda, poco,
+      op:       document.getElementById('ws-op').value.trim(),
+      tag:      document.getElementById('ws-tag').value.trim(),
+      sup:      document.getElementById('ws-sup').value.trim(),
+      criadoEm: Date.now(),
+    });
+  }
+
+  saveWorkspaces(list);
+  closeWsModal();
+  render();
+  showToast(editingWsId ? 'Workspace atualizado.' : 'Workspace criado com sucesso!', 'success');
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────
+let deletingWsId = null;
+
+function askDelete(id){
+  const ws = getWorkspaces().find(w => w.id === id);
+  if(!ws) return;
+  deletingWsId = id;
+  document.getElementById('del-ws-name').textContent = ws.sonda + ' — ' + ws.poco;
+  document.getElementById('delModal').classList.add('open');
+}
+
+function closeDelModal(){ document.getElementById('delModal').classList.remove('open'); deletingWsId = null; }
+
+function confirmDeleteWs(){
+  if(!deletingWsId) return;
+  const list = getWorkspaces().filter(w => w.id !== deletingWsId);
+  localStorage.removeItem('lismat_v2_' + deletingWsId);
+  saveWorkspaces(list);
+  closeDelModal();
+  render();
+  showToast('Workspace excluído.', 'success');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type='info'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ── User management (admin only) ──────────────────────────────────────────
+function getUsers(){ try{ return JSON.parse(localStorage.getItem('pcm_users')||'[]'); }catch(e){ return []; } }
+function saveUsersAdmin(u){ localStorage.setItem('pcm_users', JSON.stringify(u)); }
+
+function openUsersModal(){
+  if(!isAdmin) return;
+  renderUsersTable();
+  document.getElementById('usersModal').classList.add('open');
+}
+function closeUsersModal(){ document.getElementById('usersModal').classList.remove('open'); }
+
+function renderUsersTable(){
+  const users = getUsers();
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = users.map((u, i) => {
+    const isSelf = u.email === session.email;
+    const roleBadge = u.role === 'admin'
+      ? '<span class="role-badge admin">Admin</span>'
+      : '<span class="role-badge user">Usuário</span>';
+    const toggleLbl = u.role === 'admin' ? 'Tornar Usuário' : 'Tornar Admin';
+    const actions = isSelf
+      ? '<span style="font-size:var(--fs-xs);color:var(--text3)">Você</span>'
+      : `<button class="btn-icon" style="font-size:11px;padding:4px 8px;" onclick="toggleUserRole(${i})">${toggleLbl}</button>
+         <button class="btn-icon del" style="font-size:11px;padding:4px 8px;" onclick="deleteUser(${i})">Excluir</button>`;
+    return `<tr>
+      <td>${esc(u.name)}</td>
+      <td style="font-family:var(--font-mono);font-size:var(--fs-xs)">${esc(u.email)}</td>
+      <td>${roleBadge}</td>
+      <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleUserRole(idx){
+  const users = getUsers();
+  if(!users[idx] || users[idx].email === session.email) return;
+  users[idx].role = users[idx].role === 'admin' ? 'user' : 'admin';
+  saveUsersAdmin(users);
+  renderUsersTable();
+  showToast('Perfil atualizado.', 'success');
+}
+
+function deleteUser(idx){
+  const users = getUsers();
+  if(!users[idx] || users[idx].email === session.email) return;
+  if(!confirm(`Excluir o usuário "${users[idx].name}" (${users[idx].email})?`)) return;
+  users.splice(idx, 1);
+  saveUsersAdmin(users);
+  renderUsersTable();
+  showToast('Usuário removido.', 'success');
+}
+
+// ── Keyboard ──────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){ closeWsModal(); closeDelModal(); closeUsersModal(); }
+});
+
+render();
+</script>
+</body>
+</html>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="css/styles.css">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <title>PCM — Home</title>
 <style>
@@ -332,24 +333,25 @@
 </div>
 
 <script>
-// ── Firebase Firestore ────────────────────────────────────────────────────
+// ── Firebase init ─────────────────────────────────────────────────────────
+const _FB_CFG = {
+  apiKey: "AIzaSyCU_2HPubm_C7o3QrsGLvLKsh2FaZZFOXo",
+  authDomain: "pcm-2-0.firebaseapp.com",
+  projectId: "pcm-2-0",
+  storageBucket: "pcm-2-0.firebasestorage.app",
+  messagingSenderId: "541983140468",
+  appId: "1:541983140468:web:8ff0c46c73ecb5e8823f21"
+};
+if (!firebase.apps.length) firebase.initializeApp(_FB_CFG);
+const _fbAuth = firebase.auth();
+const _fbDB   = firebase.firestore();
+
+// ── Firebase Firestore (data layer) ───────────────────────────────────────
 const FSDB = (() => {
   let db = null;
   const COL = 'pcm_data';
-  const CFG = {
-    apiKey: "AIzaSyCU_2HPubm_C7o3QrsGLvLKsh2FaZZFOXo",
-    authDomain: "pcm-2-0.firebaseapp.com",
-    projectId: "pcm-2-0",
-    storageBucket: "pcm-2-0.firebasestorage.app",
-    messagingSenderId: "541983140468",
-    appId: "1:541983140468:web:8ff0c46c73ecb5e8823f21"
-  };
   function init() {
-    try {
-      if (typeof firebase === 'undefined') return;
-      if (!firebase.apps.length) firebase.initializeApp(CFG);
-      db = firebase.firestore();
-    } catch(e) { console.warn('Firebase init:', e); }
+    try { db = _fbDB; } catch(e) { console.warn('FSDB init:', e); }
   }
   async function set(key, val) {
     if (!db) return;
@@ -372,22 +374,63 @@ const FSDB = (() => {
 })();
 
 // ── Auth guard ────────────────────────────────────────────────────────────
-const session = JSON.parse(sessionStorage.getItem('pcm_session') || 'null');
-if(!session) location.href = 'login.html';
+let isAdmin = false;
+let _currentUserUID = '';
+let _currentUserEmail = '';
 
-const isAdmin = session?.role === 'admin';
+document.body.style.display = 'none';
 
-document.getElementById('user-name').textContent  = session?.name  || session?.email || '—';
-document.getElementById('user-badge').textContent = session?.email || '';
-if(isAdmin){
-  document.getElementById('admin-badge').style.display = 'inline-flex';
-  document.getElementById('btn-users').style.display   = 'inline-flex';
-}
+_fbAuth.onAuthStateChanged(async user => {
+  if (!user) { location.href = 'login.html'; return; }
+  _currentUserUID = user.uid;
+
+  try {
+    const snap = await _fbDB.collection('pcm_users').doc(user.uid).get();
+    const profile = snap.exists ? snap.data() : { name: user.email, role: 'user', email: user.email };
+    isAdmin = profile.role === 'admin';
+    _currentUserEmail = profile.email || user.email;
+    document.getElementById('user-name').textContent  = profile.name  || user.email;
+    document.getElementById('user-badge').textContent = _currentUserEmail;
+    if (isAdmin) {
+      document.getElementById('admin-badge').style.display = 'inline-flex';
+      document.getElementById('btn-users').style.display   = 'inline-flex';
+    }
+    sessionStorage.setItem('pcm_session', JSON.stringify({ email: _currentUserEmail, name: profile.name, role: profile.role, uid: user.uid }));
+  } catch(e) {
+    const cached = JSON.parse(sessionStorage.getItem('pcm_session') || 'null');
+    if (cached) {
+      isAdmin = cached.role === 'admin';
+      _currentUserEmail = cached.email || user.email;
+      document.getElementById('user-name').textContent  = cached.name  || cached.email;
+      document.getElementById('user-badge').textContent = cached.email || '';
+      if (isAdmin) {
+        document.getElementById('admin-badge').style.display = 'inline-flex';
+        document.getElementById('btn-users').style.display   = 'inline-flex';
+      }
+    }
+  }
+
+  document.body.style.display = '';
+  FSDB.init();
+  render();
+
+  try {
+    const fsWs = await FSDB.get('pcm_workspaces');
+    if (Array.isArray(fsWs) && fsWs.length > 0) {
+      localStorage.setItem('pcm_workspaces', JSON.stringify(fsWs));
+      render();
+    } else {
+      const local = getWorkspaces();
+      if (local.length > 0) FSDB.set('pcm_workspaces', local);
+    }
+  } catch(e) { console.warn('Firestore workspaces sync:', e); }
+});
 
 function doLogout(){
-  sessionStorage.removeItem('pcm_session');
-  sessionStorage.removeItem('pcm_active_ws');
-  location.href = 'login.html';
+  _fbAuth.signOut().then(() => {
+    sessionStorage.clear();
+    location.href = 'login.html';
+  });
 }
 
 // ── Workspace storage ─────────────────────────────────────────────────────
@@ -401,9 +444,7 @@ function saveWorkspaces(list){
 function calcKPIs(wsId){
   try{
     const k1 = 'lismat_v2_' + wsId;
-    const k2 = 'lismat_v2';
-    const raw = localStorage.getItem(k1) || localStorage.getItem(k2) || null;
-    console.log('[calcKPIs]', wsId, '→ key1:', !!localStorage.getItem(k1), '| key2:', !!localStorage.getItem(k2), '| raw:', !!raw);
+    const raw = localStorage.getItem(k1) || null;
     const items = raw ? JSON.parse(raw) : [];
     if(!Array.isArray(items)) return { total:0, exp:0, warn:0, ok:0 };
     const today = new Date(); today.setHours(0,0,0,0);
@@ -610,55 +651,59 @@ function showToast(msg, type='info'){
 }
 
 // ── User management (admin only) ──────────────────────────────────────────
-function getUsers(){ try{ return JSON.parse(localStorage.getItem('pcm_users')||'[]'); }catch(e){ return []; } }
-function saveUsersAdmin(u){ localStorage.setItem('pcm_users', JSON.stringify(u)); }
-
-function openUsersModal(){
+async function openUsersModal(){
   if(!isAdmin) return;
-  renderUsersTable();
   document.getElementById('usersModal').classList.add('open');
+  await renderUsersTable();
 }
 function closeUsersModal(){ document.getElementById('usersModal').classList.remove('open'); }
 
-function renderUsersTable(){
-  const users = getUsers();
+async function renderUsersTable(){
   const tbody = document.getElementById('users-tbody');
-  tbody.innerHTML = users.map((u, i) => {
-    const isSelf = u.email === session.email;
-    const roleBadge = u.role === 'admin'
-      ? '<span class="role-badge admin">Admin</span>'
-      : '<span class="role-badge user">Usuário</span>';
-    const toggleLbl = u.role === 'admin' ? 'Tornar Usuário' : 'Tornar Admin';
-    const actions = isSelf
-      ? '<span style="font-size:var(--fs-xs);color:var(--text3)">Você</span>'
-      : `<button class="btn-icon" style="font-size:11px;padding:4px 8px;" onclick="toggleUserRole(${i})">${toggleLbl}</button>
-         <button class="btn-icon del" style="font-size:11px;padding:4px 8px;" onclick="deleteUser(${i})">Excluir</button>`;
-    return `<tr>
-      <td>${esc(u.name)}</td>
-      <td style="font-family:var(--font-mono);font-size:var(--fs-xs)">${esc(u.email)}</td>
-      <td>${roleBadge}</td>
-      <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">${actions}</td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:16px;">Carregando...</td></tr>';
+  try {
+    const snap = await _fbDB.collection('pcm_users').get();
+    const users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    tbody.innerHTML = users.map(u => {
+      const isSelf = u.uid === _currentUserUID;
+      const roleBadge = u.role === 'admin'
+        ? '<span class="role-badge admin">Admin</span>'
+        : '<span class="role-badge user">Usuário</span>';
+      const toggleLbl = u.role === 'admin' ? 'Tornar Usuário' : 'Tornar Admin';
+      const actions = isSelf
+        ? '<span style="font-size:var(--fs-xs);color:var(--text3)">Você</span>'
+        : `<button class="btn-icon" style="font-size:11px;padding:4px 8px;" onclick="toggleUserRole('${u.uid}','${u.role}')">${toggleLbl}</button>
+           <button class="btn-icon del" style="font-size:11px;padding:4px 8px;" onclick="deleteUserProfile('${u.uid}','${esc(u.name)}','${esc(u.email)}')">Excluir</button>`;
+      return `<tr>
+        <td>${esc(u.name)}</td>
+        <td style="font-family:var(--font-mono);font-size:var(--fs-xs)">${esc(u.email)}</td>
+        <td>${roleBadge}</td>
+        <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">${actions}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:12px;">Erro ao carregar usuários.</td></tr>';
+  }
 }
 
-function toggleUserRole(idx){
-  const users = getUsers();
-  if(!users[idx] || users[idx].email === session.email) return;
-  users[idx].role = users[idx].role === 'admin' ? 'user' : 'admin';
-  saveUsersAdmin(users);
-  renderUsersTable();
-  showToast('Perfil atualizado.', 'success');
+async function toggleUserRole(uid, currentRole){
+  if (uid === _currentUserUID) return;
+  const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  try {
+    await _fbDB.collection('pcm_users').doc(uid).update({ role: newRole });
+    await renderUsersTable();
+    showToast('Perfil atualizado.', 'success');
+  } catch(e) { showToast('Erro ao atualizar perfil.', 'error'); }
 }
 
-function deleteUser(idx){
-  const users = getUsers();
-  if(!users[idx] || users[idx].email === session.email) return;
-  if(!confirm(`Excluir o usuário "${users[idx].name}" (${users[idx].email})?`)) return;
-  users.splice(idx, 1);
-  saveUsersAdmin(users);
-  renderUsersTable();
-  showToast('Usuário removido.', 'success');
+async function deleteUserProfile(uid, name, email){
+  if (uid === _currentUserUID) return;
+  if (!confirm(`Excluir o usuário "${name}" (${email})?`)) return;
+  try {
+    await _fbDB.collection('pcm_users').doc(uid).delete();
+    await renderUsersTable();
+    showToast('Usuário removido.', 'success');
+  } catch(e) { showToast('Erro ao remover usuário.', 'error'); }
 }
 
 // ── Keyboard ──────────────────────────────────────────────────────────────
@@ -666,21 +711,7 @@ document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){ closeWsModal(); closeDelModal(); closeUsersModal(); }
 });
 
-render(); // Renderiza imediatamente com dados locais
-
-FSDB.init();
-(async () => {
-  try {
-    const fsWs = await FSDB.get('pcm_workspaces');
-    if (Array.isArray(fsWs) && fsWs.length > 0) {
-      localStorage.setItem('pcm_workspaces', JSON.stringify(fsWs));
-      render();
-    } else {
-      const local = getWorkspaces();
-      if (local.length > 0) FSDB.set('pcm_workspaces', local);
-    }
-  } catch(e) { console.warn('Firestore workspaces sync:', e); }
-})();
+// Init is handled inside _fbAuth.onAuthStateChanged above
 </script>
 </body>
 </html>

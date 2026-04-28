@@ -1,10 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="css/styles.css">
-
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <title></title></head>
 <body class="app-layout">
 
@@ -647,7 +648,7 @@
 </div>
 
 <script>
-const _activeWsId = sessionStorage.getItem('pcm_active_ws') || null;
+const _activeWsId = sessionStorage.getItem('pcm_active_ws') || localStorage.getItem('pcm_active_ws') || null;
 function _wsKey(base){ return _activeWsId ? base + '_' + _activeWsId : base; }
 
 const SEED=[
@@ -1832,6 +1833,51 @@ const IDB = (() => {
   return { open, get, set, getAll, migrateLS };
 })();
 
+// ══════════════════════════════════════════════════════════════════════════════
+// FIREBASE FIRESTORE — Persistência em nuvem
+// ══════════════════════════════════════════════════════════════════════════════
+const FSDB = (() => {
+  let db = null;
+  const COL = 'pcm_data';
+  const CFG = {
+    apiKey: "AIzaSyCU_2HPubm_C7o3QrsGLvLKsh2FaZZFOXo",
+    authDomain: "pcm-2-0.firebaseapp.com",
+    projectId: "pcm-2-0",
+    storageBucket: "pcm-2-0.firebasestorage.app",
+    messagingSenderId: "541983140468",
+    appId: "1:541983140468:web:8ff0c46c73ecb5e8823f21"
+  };
+
+  function init() {
+    try {
+      if (typeof firebase === 'undefined') return;
+      if (!firebase.apps.length) firebase.initializeApp(CFG);
+      db = firebase.firestore();
+    } catch(e) { console.warn('Firebase init:', e); }
+  }
+
+  async function set(key, val) {
+    if (!db) return;
+    try {
+      const clean = JSON.parse(JSON.stringify(val));
+      const doc = Array.isArray(clean) ? { _arr: clean } : { ...clean };
+      await db.collection(COL).doc(key).set(doc);
+    } catch(e) { console.warn('FSDB.set:', key, e); }
+  }
+
+  async function get(key) {
+    if (!db) return null;
+    try {
+      const snap = await db.collection(COL).doc(key).get();
+      if (!snap.exists) return null;
+      const d = snap.data();
+      return '_arr' in d ? d._arr : d;
+    } catch(e) { console.warn('FSDB.get:', key, e); return null; }
+  }
+
+  return { init, set, get };
+})();
+
 // ─── Estado em memória ────────────────────────────────────────────────────────
 let config        = {};
 let items         = [];
@@ -1846,10 +1892,11 @@ let mangEditingId = null;
 let mangueiras    = [];
 let nextId        = 1;
 
-// ─── Saves — dupla camada: localStorage + IDB ────────────────────────────────
+// ─── Saves — tripla camada: localStorage + IDB + Firestore ───────────────────
 function _dualSave(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
   IDB.set(key, val);
+  FSDB.set(key, val);
 }
 function saveData(){       _dualSave(_wsKey('lismat_v2'), items); }
 function saveMangueiras(){ _dualSave(_wsKey('lismat_v2_mangueiras'), mangueiras); }
@@ -4130,6 +4177,8 @@ const GENERIC_SEED = {
 const CONT_SUB_SEED = {"1": [6], "2": [3], "4": [5, 7, 8, 9], "16": [28, 29, 30, 31, 57], "23": [24, 25, 26, 27], "35": [36], "37": [38], "39": [40, 41, 43, 42, 46, 45, 47], "51": [52, 53, 54, 55, 56], "58": [69, 70, 71, 72, 73], "77": [68]};
 
 async function initApp(){
+  FSDB.init();
+
   function lsGet(key){ try{ const s=localStorage.getItem(key); return s?JSON.parse(s):null; }catch(e){ return null; } }
 
   async function safeLoad(key, fallback){
@@ -4192,6 +4241,67 @@ async function initApp(){
     const th = document.querySelector('[data-col="diasEND"]');
     if(th) th.classList.add('sort-asc');
   }catch(e){ console.error('Render local error:', e); }
+
+  // ── FASE 2: Sincronizar com Firestore em background ───────────────────────
+  (async () => {
+    try {
+      const [fsItems, fsMang, fsCfg, fsContSub] = await Promise.all([
+        FSDB.get(_wsKey('lismat_v2')),
+        FSDB.get(_wsKey('lismat_v2_mangueiras')),
+        FSDB.get(_wsKey('lismat_v2_config')),
+        FSDB.get(_wsKey('lismat_v2_cont_sub')),
+      ]);
+
+      let changed = false;
+
+      if (Array.isArray(fsItems)) {
+        items = fsItems;
+        try{ localStorage.setItem(_wsKey('lismat_v2'), JSON.stringify(items)); }catch(e){}
+        nextId = (items.length ? Math.max(...items.map(i=>i.id)) : 0) + 1;
+        changed = true;
+      } else {
+        FSDB.set(_wsKey('lismat_v2'), items);
+      }
+
+      if (Array.isArray(fsMang)) {
+        mangueiras = fsMang;
+        try{ localStorage.setItem(_wsKey('lismat_v2_mangueiras'), JSON.stringify(mangueiras)); }catch(e){}
+        changed = true;
+      } else {
+        FSDB.set(_wsKey('lismat_v2_mangueiras'), mangueiras);
+      }
+
+      if (fsCfg && typeof fsCfg === 'object' && Object.keys(fsCfg).length > 0) {
+        config = fsCfg;
+        try{ localStorage.setItem(_wsKey('lismat_v2_config'), JSON.stringify(config)); }catch(e){}
+        changed = true;
+      } else {
+        FSDB.set(_wsKey('lismat_v2_config'), config);
+      }
+
+      if (fsContSub && typeof fsContSub === 'object') {
+        contSubitems = fsContSub;
+        try{ localStorage.setItem(_wsKey('lismat_v2_cont_sub'), JSON.stringify(contSubitems)); }catch(e){}
+      } else {
+        FSDB.set(_wsKey('lismat_v2_cont_sub'), contSubitems);
+      }
+
+      if (changed) {
+        loadConfig(); updateKPIs(); applyFilters(); renderMangueiras();
+      }
+
+      for (const k of Object.keys(GENERIC_CFG)) {
+        const fsGeneric = await FSDB.get(_wsKey(GENERIC_CFG[k].lsKey));
+        if (Array.isArray(fsGeneric)) {
+          genericData[k] = fsGeneric;
+          try{ localStorage.setItem(_wsKey(GENERIC_CFG[k].lsKey), JSON.stringify(genericData[k])); }catch(e){}
+          if (changed) renderGenericTab(k);
+        } else {
+          FSDB.set(_wsKey(GENERIC_CFG[k].lsKey), genericData[k]);
+        }
+      }
+    } catch(e) { console.warn('Firestore sync error:', e); }
+  })();
 
 }
 

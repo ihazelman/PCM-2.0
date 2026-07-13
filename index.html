@@ -2270,13 +2270,18 @@ function handleGenericImport(event, tabKey){
     const lines = text.split(/\r?\n/);
     if(lines.length < 2){ showToast('Arquivo vazio ou sem dados.','error'); return; }
 
-    // Detectar separador
-    const sep = lines.find(l => !l.startsWith(';'))?.includes(';') ? ';' : ',';
+    // Comentário/instrução = linha que começa com "; " (ponto-e-vírgula + espaço).
+    // Não usar apenas "startsWith(';')" pois uma linha de dados com as primeiras
+    // colunas em branco (ex: ";;;Descrição;1;1") também começa com ";".
+    const isNoteLine = l => /^;\s/.test(l);
 
-    // Encontrar linha de cabeçalho (ignora linhas de comentário que começam com ;)
+    // Detectar separador
+    const sep = lines.find(l => !isNoteLine(l))?.includes(';') ? ';' : ',';
+
+    // Encontrar linha de cabeçalho (ignora linhas de comentário)
     let headerLine = -1;
     for(let i=0; i<lines.length; i++){
-      if(!lines[i].startsWith(';') && lines[i].trim()){
+      if(!isNoteLine(lines[i]) && lines[i].trim()){
         headerLine = i; break;
       }
     }
@@ -2287,7 +2292,7 @@ function handleGenericImport(event, tabKey){
     const baseId = Date.now();
     for(let i = headerLine + 1; i < lines.length; i++){
       const line = lines[i].trim();
-      if(!line || line.startsWith(';')) continue;
+      if(!line || isNoteLine(line)) continue;
       const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,''));
       if(!cols.some(c => c)) continue; // linha toda vazia
 
@@ -2350,11 +2355,16 @@ function handleDPRImport(event){
     const lines = text.split(/\r?\n/);
     if(lines.length < 2){ showToast('Arquivo vazio ou sem dados.','error'); return; }
 
-    const sep = lines.find(l => !l.startsWith(';'))?.includes(';') ? ';' : ',';
+    // Comentário/instrução = linha que começa com "; " (ponto-e-vírgula + espaço).
+    // Não usar apenas "startsWith(';')" pois uma linha de dados com as primeiras
+    // colunas em branco (ex: ";Descrição;1;...") também começa com ";".
+    const isNoteLine = l => /^;\s/.test(l);
+
+    const sep = lines.find(l => !isNoteLine(l))?.includes(';') ? ';' : ',';
 
     let headerLine = -1;
     for(let i=0; i<lines.length; i++){
-      if(!lines[i].startsWith(';') && lines[i].trim()){ headerLine = i; break; }
+      if(!isNoteLine(lines[i]) && lines[i].trim()){ headerLine = i; break; }
     }
     if(headerLine === -1){ showToast('Cabeçalho não encontrado.','error'); return; }
 
@@ -2384,7 +2394,7 @@ function handleDPRImport(event){
     let count = 0;
     for(let i = headerLine + 1; i < lines.length; i++){
       const line = lines[i].trim();
-      if(!line || line.startsWith(';')) continue;
+      if(!line || isNoteLine(line)) continue;
       const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,''));
       if(!cols.some(c => c)) continue;
 

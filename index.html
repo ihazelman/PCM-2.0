@@ -308,7 +308,6 @@ body.role-user .sidebar-action-btn:not(.sidebar-action-excel) { display: none; }
         <thead>
           <tr>
             <th class="no-sort">Cat.</th>
-            <th onclick="sortTable('itemSub')" data-col="itemSub">Item/Sub Item <span class="sort-icon"></span></th>
             <th onclick="sortTable('status')" data-col="status">Status <span class="sort-icon"></span></th>
             <th onclick="sortTable('descricao')" data-col="descricao">Descrição <span class="sort-icon"></span></th>
             <th onclick="sortTable('qtd')" data-col="qtd">QTD <span class="sort-icon"></span></th>
@@ -2006,7 +2005,7 @@ function renderTable(){
   const body=document.getElementById('tableBody');
   const enriched=filtered.map(enrichItem);
   document.getElementById('countBadge').textContent=enriched.length;
-  if(!enriched.length){body.innerHTML=`<tr class="empty-row"><td colspan="16">Nenhum item encontrado.</td></tr>`;return;}
+  if(!enriched.length){body.innerHTML=`<tr class="empty-row"><td colspan="15">Nenhum item encontrado.</td></tr>`;return;}
   body.innerHTML=enriched.map(item=>{
     const s=getStatus(item.diasEND);
     const rs=s==='expired'?'background:rgba(224,60,60,0.04);':s==='warning'?'background:rgba(232,184,75,0.04);':'';
@@ -2031,7 +2030,6 @@ function renderTable(){
     const rowClass = item.desembarcado ? 'item-desembarcado' : item.transbordado ? 'item-transbordado' : '';
     return`<tr style="${rs}" class="${rowClass}">
       <td>${catBadge(item.categoria)}${dupBadge}</td>
-      <td class="td-mono">${item.itemSub||'<span style="color:var(--text-dim)">—</span>'}</td>
       <td class="td-mono">${item.status||'<span style="color:var(--text-dim)">—</span>'}</td>
       <td class="td-desc"><span>${item.descricao}</span>${item.dimensao?`<small>Dim: ${item.dimensao}</small>`:''}${item.peso?`<small>Peso: ${item.peso}</small>`:''}</td>
       <td class="td-mono" style="font-weight:700;color:var(--navy)">${item.qtd||'<span style="color:var(--text-dim)">—</span>'}</td>
@@ -2333,8 +2331,8 @@ function downloadDPRTemplate(){
     '; - Datas no formato AAAA-MM-DD (ex: 2026-12-31) — deixe em branco se sem validade',
     '; - Pode importar várias vezes (os itens serão adicionados, não substituídos)',
   ].join('\n') + '\n';
-  const header  = 'Item/ Sub Item;STATUS;Descrição;QTD;NS / TAG;NP;RSS;Dimensão;Peso(KG);Validade END (AAAA-MM-DD);Dias p/ Vencimento;ID Lingada;Validade Lingada (AAAA-MM-DD);Dias p/ Vencimento Lingada;RT Embarque;RT Desembarque\n';
-  const example = '01;OK;HPU (RISER DECK);1;HP7938-2-3;2502200-14;RSS-001;25x50x30cm;500;2026-12-31;;LING-001;2026-06-30;;RT-001;RT-002\n';
+  const header  = 'STATUS;Descrição;QTD;NS / TAG;NP;RSS;Dimensão;Peso(KG);Validade END (AAAA-MM-DD);Dias p/ Vencimento;ID Lingada;Validade Lingada (AAAA-MM-DD);Dias p/ Vencimento Lingada;RT Embarque;RT Desembarque\n';
+  const example = 'OK;HPU (RISER DECK);1;HP7938-2-3;2502200-14;RSS-001;25x50x30cm;500;2026-12-31;;LING-001;2026-06-30;;RT-001;RT-002\n';
   const blob = new Blob(['﻿' + notes + header + example], {type:'text/csv;charset=utf-8;'});
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -2360,7 +2358,7 @@ function handleDPRImport(event){
     }
     if(headerLine === -1){ showToast('Cabeçalho não encontrado.','error'); return; }
 
-    // Auto-detect format: planilha (RSS;DESCRIÇÃO;NP;NS/TAG;...) vs template (Item/Sub Item;STATUS;Descrição;...)
+    // Auto-detect format: planilha (RSS;DESCRIÇÃO;NP;NS/TAG;...) vs template (STATUS;Descrição;...)
     const firstCol = lines[headerLine].split(sep)[0].trim().toUpperCase().replace(/[^A-Z]/g,'');
     const isPlanilha = firstCol === 'RSS';
 
@@ -2410,27 +2408,26 @@ function handleDPRImport(event){
           semValidade: true, semValidadeLing: true,
         });
       } else {
-        // Formato template: Item/Sub Item;STATUS;Descrição;QTD;NS/TAG;NP;RSS;Dimensão;Peso(KG);Validade END;Dias p/ Vencimento;ID Lingada;Validade Lingada;Dias p/ Vencimento Lingada;RT Embarque;RT Desembarque
-        const descricao = (cols[2]||'').toUpperCase();
+        // Formato template: STATUS;Descrição;QTD;NS/TAG;NP;RSS;Dimensão;Peso(KG);Validade END;Dias p/ Vencimento;ID Lingada;Validade Lingada;Dias p/ Vencimento Lingada;RT Embarque;RT Desembarque
+        const descricao = (cols[1]||'').toUpperCase();
         if(!descricao) continue;
-        const validadeEND  = normalizeDate(cols[9]);
-        const validadeLing = normalizeDate(cols[12]);
+        const validadeEND  = normalizeDate(cols[8]);
+        const validadeLing = normalizeDate(cols[11]);
         Object.assign(newItem, {
-          itemSub:     cols[0]||'',
-          status:      cols[1]||'',
+          status:      cols[0]||'',
           categoria:   detectCategoria(descricao),
           descricao,
-          qtd:         cols[3]||'',
-          ns:          cols[4]||'',
-          np:          cols[5]||'',
-          rss:         cols[6]||'',
-          dimensao:    cols[7]||'',
-          peso:        cols[8]||'',
+          qtd:         cols[2]||'',
+          ns:          cols[3]||'',
+          np:          cols[4]||'',
+          rss:         cols[5]||'',
+          dimensao:    cols[6]||'',
+          peso:        cols[7]||'',
           validadeEND,
           validadeLing,
-          idLingada:   cols[11]||'',
-          rtEmb:       cols[14]||'',
-          rtDes:       cols[15]||'',
+          idLingada:   cols[10]||'',
+          rtEmb:       cols[13]||'',
+          rtDes:       cols[14]||'',
           semValidade:     !validadeEND,
           semValidadeLing: !validadeLing,
         });
@@ -2936,8 +2933,6 @@ function renderDPRForm(item=null){
   const semValLing = item?.semValidadeLing === true;
   document.getElementById('modalBody').innerHTML = `
     <div class="form-grid">
-      <div class="form-group"><label class="form-label">Item/Sub Item</label>
-        <input type="text" class="form-input" id="f-itemSub" value="${item?.itemSub||''}" placeholder="Ex: 01 / 01.1"></div>
       <div class="form-group"><label class="form-label">Status</label>
         <input type="text" class="form-input" id="f-status" value="${item?.status||''}" placeholder="Ex: OK, N/A"></div>
       <div class="form-group full"><label class="form-label">Descrição <span class="req">*</span></label>
@@ -3139,7 +3134,6 @@ function saveItem(){
 
   const newItem={
     id:editingId||nextId++,
-    itemSub:document.getElementById('f-itemSub').value.trim(),
     status:document.getElementById('f-status').value.trim(),
     categoria:document.getElementById('f-categoria').value,
     descricao:desc,

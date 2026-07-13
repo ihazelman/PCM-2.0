@@ -2268,7 +2268,7 @@ function handleGenericImport(event, tabKey){
 
   const reader = new FileReader();
   reader.onload = function(e){
-    const text  = e.target.result;
+    const text  = e.target.result.replace(/^﻿/, '');
     const lines = text.split(/\r?\n/);
     if(lines.length < 2){ showToast('Arquivo vazio ou sem dados.','error'); return; }
 
@@ -2348,7 +2348,7 @@ function handleDPRImport(event){
   if(!file) return;
   const reader = new FileReader();
   reader.onload = function(e){
-    const text  = e.target.result;
+    const text  = e.target.result.replace(/^﻿/, '');
     const lines = text.split(/\r?\n/);
     if(lines.length < 2){ showToast('Arquivo vazio ou sem dados.','error'); return; }
 

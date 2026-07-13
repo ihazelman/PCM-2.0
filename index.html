@@ -2507,6 +2507,16 @@ function normSubIds(contId){
   return raw.map(x => typeof x === 'object' ? x.id : x);
 }
 
+// ── Helper: IDs de itens já atribuídos a QUALQUER OUTRO contentor
+function getAllAssignedIds(excludeContId){
+  const set = new Set();
+  Object.keys(contSubitems).forEach(cid => {
+    if(Number(cid) === Number(excludeContId)) return;
+    normSubIds(cid).forEach(id => set.add(id));
+  });
+  return set;
+}
+
 // ── Ícone de categoria
 function ddIcon(cat){
   if(cat==='Ferramentas / Equipamentos') return `<div class="dd-item-icon dd-icon-ferr">F</div>`;
@@ -2518,6 +2528,7 @@ function ddIcon(cat){
 // ── Abrir modal drag-drop
 function openSubitemModal(contId){
   _ddContId = contId;
+  _ddTempAssigned = normSubIds(contId).slice();
   const cont = items.find(it=>it.id===contId);
   const contLabel = cont ? cont.descricao : `Contentor #${contId}`;
 
@@ -2525,70 +2536,12 @@ function openSubitemModal(contId){
   document.getElementById('formModal').classList.add('dd-modal-wide');
 
   setModalStyle('ITENS','var(--navy)','#fff',`Itens: ${contLabel}`,'Salvar');
-  document.getElementById('modalBody').innerHTML = buildDDUI(contId);
+  document.getElementById('modalBody').innerHTML = buildDDUI2(contId);
   document.getElementById('saveBtn').onclick = () => saveDDSubitems(contId);
 
   // Inicializar drag-drop após render
   setTimeout(()=>initDragDrop(contId), 0);
   document.getElementById('formModal').classList.add('open');
-}
-
-function buildDDUI(contId){
-  const assignedIds = normSubIds(contId);
-  // Disponíveis: todos os itens DPR, exceto contentores e SKIDs do próprio contentor
-  const available = items.filter(it => it.id !== contId && !assignedIds.includes(it.id));
-  const assigned   = assignedIds.map(id=>items.find(it=>it.id===id)).filter(Boolean);
-
-  const renderItem = (it, side) => {
-    const sub  = it.ns  ? `NS: ${it.ns}` : (it.np ? `NP: ${it.np}` : '');
-    const rm   = side==='right' ? `<span class="dd-remove" onclick="ddRemove(${it.id})" title="Remover">✕</span>` : '';
-    return `<div class="dd-item" draggable="true" data-id="${it.id}" data-side="${side}"
-      ondragstart="ddDragStart(event)"
-      ondragend="ddDragEnd(event)">
-      ${ddIcon(it.categoria)}
-      <div class="dd-item-info">
-        <div class="dd-item-desc">${it.descricao}</div>
-        ${sub?`<div class="dd-item-sub">${sub}</div>`:''}
-      </div>
-      ${rm}
-    </div>`;
-  };
-
-  const leftItems  = available.map(it=>renderItem(it,'left')).join('') ||
-    `<div class="dd-hint">Todos os itens já estão no contentor.</div>`;
-  const rightItems = assigned.map(it=>renderItem(it,'right')).join('') ||
-    `<div class="dd-drop-zone" id="dd-empty-zone">Arraste itens da esquerda<br>ou clique em ➕ para adicionar</div>`;
-
-  return `
-  <div style="margin-bottom:10px;font-size:11px;color:var(--text3);">
-    Arraste itens da lista de materiais para dentro do contentor, ou clique em qualquer item para mover.
-  </div>
-  <div class="dd-cols">
-    <!-- COLUNA ESQUERDA: Lista DPR disponível -->
-    <div class="dd-col dd-col-left" id="dd-col-left"
-      ondragover="ddOver(event,'left')" ondrop="ddDrop(event,'left')" ondragleave="ddLeave(event,'left')">
-      <div class="dd-col-header">
-        <span>📋 Material DPR</span>
-        <span class="dd-count" id="dd-count-left">${available.length}</span>
-      </div>
-      <div class="dd-search">
-        <div class="dd-search-wrap">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#c8cfe0" stroke-width="1.5"/><path d="M11 11L14.5 14.5" stroke="#c8cfe0" stroke-width="1.5" stroke-linecap="round"/></svg>
-          <input type="text" id="dd-search" placeholder="Buscar item..." oninput="ddFilter()" autocomplete="off">
-        </div>
-      </div>
-      <div class="dd-list" id="dd-list-left">${leftItems}</div>
-    </div>
-    <!-- COLUNA DIREITA: Dentro do contentor -->
-    <div class="dd-col" id="dd-col-right"
-      ondragover="ddOver(event,'right')" ondrop="ddDrop(event,'right')" ondragleave="ddLeave(event,'right')">
-      <div class="dd-col-header">
-        <span>📦 Dentro do Contentor</span>
-        <span class="dd-count" id="dd-count-right">${assigned.length}</span>
-      </div>
-      <div class="dd-list" id="dd-list-right" style="padding-top:8px;">${rightItems}</div>
-    </div>
-  </div>`;
 }
 
 // ── Drag & Drop handlers
@@ -2638,8 +2591,10 @@ function ddDrop(e, side){
 }
 
 function ddMoveToRight(itemId){
-  const assignedIds = normSubIds(_ddContId);
-  if(assignedIds.includes(itemId)) return;
+  if(getAllAssignedIds(_ddContId).has(itemId)){
+    showToast('Este item já está em outro contentor.','error');
+    return;
+  }
   // Atualiza lista temporária no UI e persiste depois no save
   _ddTempAssigned = _ddTempAssigned.filter(x=>x!==itemId);
   _ddTempAssigned.push(itemId);
@@ -2656,11 +2611,9 @@ function ddRemove(itemId){
 // Estado temporário enquanto o modal está aberto
 let _ddTempAssigned = [];
 
-// Sobrescrever openSubitemModal para inicializar _ddTempAssigned
-
-
 function buildDDUI2(contId){
-  const available = items.filter(it => it.id !== contId && !_ddTempAssigned.includes(it.id));
+  const assignedElsewhere = getAllAssignedIds(contId);
+  const available = items.filter(it => it.id !== contId && !_ddTempAssigned.includes(it.id) && !assignedElsewhere.has(it.id));
   const assigned  = _ddTempAssigned.map(id=>items.find(it=>it.id===id)).filter(Boolean);
 
   const renderItem = (it, side) => {

@@ -2192,7 +2192,7 @@ function handleMangImport(event){
     for(let i = 1; i < lines.length; i++){
       const line = lines[i].trim();
       if(!line) continue;
-      const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,''));
+      const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,'').replace(/""/g,'"'));
       if(cols.length >= 2){
         // Normaliza data: converte DD/MM/AAAA → AAAA-MM-DD se necessário
         let venc = cols[3] || '';
@@ -2293,7 +2293,7 @@ function handleGenericImport(event, tabKey){
     for(let i = headerLine + 1; i < lines.length; i++){
       const line = lines[i].trim();
       if(!line || isNoteLine(line)) continue;
-      const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,''));
+      const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,'').replace(/""/g,'"'));
       if(!cols.some(c => c)) continue; // linha toda vazia
 
       const rec = { id: baseId + i };
@@ -2307,9 +2307,10 @@ function handleGenericImport(event, tabKey){
         rec[field] = val;
       });
 
-      // Validação mínima: precisa ter ao menos descrição
+      // Validação mínima: precisa ter ao menos descrição ou identificação preenchida
       const descField = map.fields.includes('descricao') ? 'descricao' : map.fields[0];
-      if(!rec[descField]) continue;
+      const temIdentificacao = map.fields.includes('identificacao') && rec.identificacao;
+      if(!rec[descField] && !temIdentificacao) continue;
 
       genericData[tabKey].push(rec);
       count++;
@@ -2395,7 +2396,7 @@ function handleDPRImport(event){
     for(let i = headerLine + 1; i < lines.length; i++){
       const line = lines[i].trim();
       if(!line || isNoteLine(line)) continue;
-      const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,''));
+      const cols = line.split(sep).map(v => v.trim().replace(/^"|"$/g,'').replace(/""/g,'"'));
       if(!cols.some(c => c)) continue;
 
       let newItem = { id: nextId++, desembarcado: false, transbordado: false, criadoPor: _nome, criadoEm: _data };

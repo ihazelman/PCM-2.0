@@ -4154,14 +4154,15 @@ function exportLoadOutSelecionados(tipo){
     const xls=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
     <head><meta charset="UTF-8"><style>body{font-family:Calibri,Arial,sans-serif;}</style></head>
     <body style="padding:20px;">
-    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-      <tr><td style="background:linear-gradient(135deg,#001f6b,#003087);padding:14px 20px;border-bottom:4px solid #FF6B00;">
-        <img src="${logoUrl}" width="130" style="filter:brightness(0) invert(1);vertical-align:middle;">
-        <span style="color:#fff;font-size:16px;font-weight:700;margin-left:14px;vertical-align:middle;">LOAD OUT — DESEMBARQUE</span>
-      </td></tr>
-      <tr><td style="background:#f0f4fb;padding:7px 20px;font-size:11px;color:#5a6a80;border-bottom:1px solid #dde4f0;">
-        Sonda: <b>${config.sonda||'—'}</b> · Operação: <b>${config.op||'—'}</b> · Supervisor: <b>${config.sup||'—'}</b> · Data: <b>${today}</b> · Itens: <b>${loSelected.size}</b>
-      </td></tr>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;background:#ffffff;">
+      <tr style="border-bottom:2px solid #dde4f0;">
+        <td style="padding:12px 20px;width:1%;white-space:nowrap;vertical-align:middle;">
+          <img src="${logoUrl}" width="130" style="vertical-align:middle;">
+        </td>
+        <td style="padding:12px 20px;text-align:right;vertical-align:middle;font-size:11px;color:#5a6a80;">
+          Sonda: <b>${config.sonda||'—'}</b> · Poço: <b>${config.poco||'—'}</b> · Operação: <b>${config.op||'—'}</b> · Líder: <b>${config.sup||'—'}</b> · Data: <b>${today}</b> · Itens: <b>${loSelected.size}</b>
+        </td>
+      </tr>
     </table>
     <table style="width:100%;border-collapse:collapse;">${sections}</table>
     </body></html>`;
@@ -4309,16 +4310,13 @@ function exportLoadOutExcel(){
   const xls = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
   <head><meta charset="UTF-8"><style>body{font-family:Calibri,Arial,sans-serif;}</style></head>
   <body style="padding:20px;">
-  <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-    <tr>
-      <td style="background:linear-gradient(135deg,#001f6b,#003087);padding:16px 20px;border-bottom:4px solid #FF6B00;">
-        <img src="${logoUrl}" width="140" style="filter:brightness(0) invert(1);vertical-align:middle;">
-        <span style="color:#fff;font-size:17px;font-weight:700;margin-left:16px;vertical-align:middle;">LOAD OUT — MERO IV / NS-39</span>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px;background:#ffffff;">
+    <tr style="border-bottom:2px solid #dde4f0;">
+      <td style="padding:14px 20px;width:1%;white-space:nowrap;vertical-align:middle;">
+        <img src="${logoUrl}" width="140" style="vertical-align:middle;">
       </td>
-    </tr>
-    <tr>
-      <td style="background:#f0f4fb;padding:8px 20px;font-size:11px;color:#5a6a80;border-bottom:1px solid #dde4f0;">
-        Sonda: <b>${config.sonda||'—'}</b> · Poço: <b>${config.poco||'—'}</b> · Operação: <b>${config.op||'—'}</b> · Supervisor: <b>${config.sup||'—'}</b> · Data: <b>${today}</b>
+      <td style="padding:14px 20px;text-align:right;vertical-align:middle;font-size:11px;color:#5a6a80;">
+        Sonda: <b>${config.sonda||'—'}</b> · Poço: <b>${config.poco||'—'}</b> · Operação: <b>${config.op||'—'}</b> · Líder: <b>${config.sup||'—'}</b> · Data: <b>${today}</b>
       </td>
     </tr>
   </table>
